@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 /**
  * SliderInput Layout:
@@ -11,23 +11,48 @@ import React from 'react';
  * Input box is right-aligned. Unit text appears centered below the box.
  */
 export default function SliderInput({ label, value, onChange, min, max, step = 1, unit = '' }) {
+    const [tempValue, setTempValue] = useState(value !== undefined ? value.toString() : '');
+
+    // Sync local state when parent value changes (e.g. via slider movement)
+    useEffect(() => {
+        if (value !== undefined) {
+            const parsedLocal = parseFloat(tempValue);
+            if (parsedLocal !== value && !isNaN(value)) {
+                setTempValue(value.toString());
+            }
+        }
+    }, [value]);
+
     const progress = ((value - min) / (max - min)) * 100;
 
     const handleSlider = (e) => {
-        onChange(parseFloat(e.target.value));
+        const val = parseFloat(e.target.value);
+        onChange(val);
+        setTempValue(val.toString());
     };
 
     const handleInput = (e) => {
-        const raw = e.target.value.replace(/,/g, '');
-        if (raw === '' || raw === '-') return;
-        const val = parseFloat(raw);
-        if (!isNaN(val)) onChange(val);
+        const raw = e.target.value;
+        setTempValue(raw);
+
+        const cleaned = raw.replace(/,/g, '');
+        if (cleaned === '' || cleaned === '-') {
+            return; // Let them type empty or negative state before updating parent
+        }
+
+        const val = parseFloat(cleaned);
+        if (!isNaN(val)) {
+            // Update parent, but DO NOT clamp while typing so they can type freely
+            onChange(val);
+        }
     };
 
     const handleBlur = (e) => {
-        const val = parseFloat(e.target.value.replace(/,/g, ''));
-        if (!isNaN(val)) onChange(Math.min(max, Math.max(min, val)));
-        else onChange(min);
+        const raw = e.target.value.replace(/,/g, '');
+        const val = parseFloat(raw);
+        const clamped = isNaN(val) ? min : Math.min(max, Math.max(min, val));
+        onChange(clamped);
+        setTempValue(clamped.toString());
     };
 
     return (
@@ -42,9 +67,9 @@ export default function SliderInput({ label, value, onChange, min, max, step = 1
                 min={min}
                 max={max}
                 step={step}
-                value={value}
+                value={isNaN(value) || value < min ? min : value > max ? max : value}
                 onChange={handleSlider}
-                style={{ '--progress': `${progress}%` }}
+                style={{ '--progress': `${progress < 0 ? 0 : progress > 100 ? 100 : progress}%` }}
             />
 
             {/* Right-aligned input box + unit below it */}
@@ -53,7 +78,7 @@ export default function SliderInput({ label, value, onChange, min, max, step = 1
                     <input
                         type="number"
                         className="input-field"
-                        value={value}
+                        value={tempValue}
                         onChange={handleInput}
                         onBlur={handleBlur}
                         min={min}

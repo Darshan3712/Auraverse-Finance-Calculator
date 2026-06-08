@@ -1115,3 +1115,181 @@ input[type='number'] {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* ── Loans Dashboard ──────────────────────────────────────────────────────── */
+.dashboard-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  animation: fadeIn 0.4s ease;
+}
+
+.dashboard-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.dashboard-title {
+  font-family: 'Marcellus', serif;
+  font-size: 36px;
+  color: var(--accent-gold);
+  margin-bottom: 12px;
+  letter-spacing: 0.03em;
+  text-shadow: 0 2px 10px rgba(212, 175, 55, 0.15);
+}
+
+.dashboard-subtitle {
+  font-size: 16px;
+  color: var(--text-secondary);
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 24px;
+}
+
+.dashboard-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 30px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: var(--transition);
+  box-shadow: var(--shadow-card);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.dashboard-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--gradient-primary);
+  opacity: 0;
+  transition: var(--transition);
+}
+
+.dashboard-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 30px rgba(46, 58, 140, 0.12);
+  border-color: rgba(46, 58, 140, 0.2);
+}
+
+.dashboard-card:hover::before {
+  opacity: 1;
+}
+
+.dashboard-card-icon {
+  font-size: 40px;
+  margin-bottom: 20px;
+  width: 70px;
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(46, 58, 140, 0.05), rgba(109, 93, 246, 0.05));
+  border-radius: 50%;
+  border: 1px solid rgba(46, 58, 140, 0.08);
+  transition: var(--transition);
+}
+
+.dashboard-card:hover .dashboard-card-icon {
+  transform: scale(1.1);
+  box-shadow: 0 0 15px rgba(109, 93, 246, 0.25);
+  background: rgba(46, 58, 140, 0.08);
+}
+
+.dashboard-card-title {
+  font-family: 'Marcellus', serif;
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--accent-primary);
+  margin-bottom: 12px;
+}
+
+.dashboard-card:hover .dashboard-card-title {
+  color: var(--accent-gold);
+}
+
+.dashboard-card-description {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 24px;
+  flex-grow: 1;
+}
+
+.dashboard-card-button {
+  width: 100%;
+  padding: 12px 20px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--accent-primary);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.dashboard-card-button::after {
+  content: '→';
+  transition: transform 0.2s ease;
+}
+
+.dashboard-card:hover .dashboard-card-button {
+  background: var(--gradient-primary);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(46, 58, 140, 0.2);
+}
+
+.dashboard-card:hover .dashboard-card-button::after {
+  transform: translateX(4px);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-container {
+    padding: 24px 16px;
+  }
+  .dashboard-title {
+    font-size: 28px;
+  }
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* active category header on dashboard */
+.sidebar-category-header.active-dashboard {
+  color: var(--accent-gold) !important;
+  background: rgba(212, 175, 55, 0.05);
+  border-left: 3px solid var(--accent-gold);
+  padding-left: 17px;
+}

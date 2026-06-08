@@ -375,6 +375,516 @@ export function calculateWealthCreation(monthlyInvestment, years, strategy) {
     };
 }
 
+// ─── BONDS CALCULATOR ────────────────────────────────────────────────────────
+
+/**
+ * Bonds Yield and Returns Calculator
+ * Solves for Yield to Maturity (YTM) exactly using Bisection numerical method.
+ * Computes Current Yield, Total Payouts, and Returns.
+ */
+export function calculateBond(faceValue, purchasePrice, couponRate, years, frequency = 1) {
+    const couponPayment = faceValue * (couponRate / 100);
+    const totalPeriods = years * frequency;
+    const periodCoupon = couponPayment / frequency;
+    
+    // Current Yield = (Annual Coupon / Purchase Price) * 100
+    const currentYield = (couponPayment / purchasePrice) * 100;
+    
+    // Total Interest Paid
+    const totalInterest = couponPayment * years;
+    
+    // Maturity Amount
+    const maturityAmount = faceValue;
+    
+    // Total Returns / Gain
+    const totalGain = faceValue + totalInterest - purchasePrice;
+    
+    // Yield to Maturity (YTM) calculation using Bisection Method
+    let ytm = 0;
+    let low = -0.99; // Yield cannot be less than -100%
+    let high = 2.0;  // 200% limit
+    
+    for (let iter = 0; iter < 100; iter++) {
+        const mid = (low + high) / 2;
+        let pv = 0;
+        
+        // Present value of coupons
+        for (let t = 1; t <= totalPeriods; t++) {
+            pv += periodCoupon / Math.pow(1 + mid / frequency, t);
+        }
+        // Present value of principal
+        pv += faceValue / Math.pow(1 + mid / frequency, totalPeriods);
+        
+        if (Math.abs(pv - purchasePrice) < 0.0001) {
+            ytm = mid;
+            break;
+        }
+        
+        if (pv > purchasePrice) {
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+    if (ytm === 0) {
+        ytm = (low + high) / 2;
+    }
+    
+    // Create cashflow schedule (yearly or periodic breakdown)
+    const schedule = [];
+    let cumulativeInterest = 0;
+    for (let period = 1; period <= totalPeriods; period++) {
+        cumulativeInterest += periodCoupon;
+        schedule.push({
+            period,
+            year: (period / frequency).toFixed(1),
+            payout: periodCoupon,
+            cumulative: cumulativeInterest,
+        });
+    }
+
+    return {
+        currentYield: parseFloat(currentYield.toFixed(2)),
+        ytm: parseFloat((ytm * 100).toFixed(2)),
+        totalInterest: Math.round(totalInterest),
+        maturityAmount: Math.round(maturityAmount),
+        totalGain: Math.round(totalGain),
+        schedule
+    };
+}
+
+// ─── GOAL BASED SAVINGS PLANNING CALCULATOR ──────────────────────────────────
+
+/**
+ * Goal-Based Savings Planning Calculator
+ * Computes inflation-adjusted future goal cost, expected growth of existing savings,
+ * remaining gap to be accumulated, and the required monthly SIP contribution.
+ */
+export function calculateGoalPlanning(presentCost, inflationRate, years, expectedReturn, existingSavings) {
+    // 1. Future cost of the goal adjusted for inflation
+    const futureCost = presentCost * Math.pow(1 + inflationRate / 100, years);
+    
+    // 2. Future value of existing savings
+    const r = expectedReturn / 100;
+    const fvSavings = existingSavings * Math.pow(1 + r, years);
+    
+    // 3. Gap amount to be funded
+    const gap = Math.max(0, futureCost - fvSavings);
+    
+    // 4. Monthly SIP required to cover the gap
+    let monthlySIP = 0;
+    const monthlyRate = expectedReturn / 12 / 100;
+    const months = years * 12;
+    
+    if (gap > 0) {
+        if (monthlyRate > 0) {
+            monthlySIP = gap * monthlyRate / ((Math.pow(1 + monthlyRate, months) - 1) * (1 + monthlyRate));
+        } else {
+            monthlySIP = gap / months;
+        }
+    }
+    
+    // 5. Total Invested by the user (existing savings + new SIP payments)
+    const totalSIPInvested = monthlySIP * months;
+    const totalInvested = existingSavings + totalSIPInvested;
+    
+    // 6. Returns earned
+    const returnsEarned = futureCost - totalInvested;
+    
+    // Year-by-year breakdown
+    const yearlyBreakdown = [];
+    let runningSavings = existingSavings;
+    let runningSIPInvested = 0;
+    
+    for (let y = 1; y <= years; y++) {
+        // Grow savings for 1 year
+        runningSavings = runningSavings * (1 + r);
+        
+        // SIP contribution for this year
+        const sipContributedThisYear = monthlySIP * 12;
+        runningSIPInvested += sipContributedThisYear;
+        
+        // Value of SIP at end of year
+        const annualFVFactor = monthlyRate > 0 ? ((Math.pow(1 + monthlyRate, 12) - 1) / monthlyRate) * (1 + monthlyRate) : 12;
+        
+        let sipFV = 0;
+        for (let yearIdx = 1; yearIdx <= y; yearIdx++) {
+            const remainingY = y - yearIdx;
+            sipFV += monthlySIP * annualFVFactor * Math.pow(1 + monthlyRate, remainingY * 12);
+        }
+        
+        const totalAccumulated = runningSavings + sipFV;
+        const inflationAdjustedCost = presentCost * Math.pow(1 + inflationRate / 100, y);
+        
+        yearlyBreakdown.push({
+            year: y,
+            targetCost: Math.round(inflationAdjustedCost),
+            accumulated: Math.round(totalAccumulated),
+            invested: Math.round(existingSavings + runningSIPInvested),
+        });
+    }
+
+    return {
+        futureCost: Math.round(futureCost),
+        fvSavings: Math.round(fvSavings),
+        gap: Math.round(gap),
+        monthlySIP: Math.round(monthlySIP),
+        totalInvested: Math.round(totalInvested),
+        totalSIPInvested: Math.round(totalSIPInvested),
+        returnsEarned: Math.round(returnsEarned),
+        yearlyBreakdown
+    };
+}
+
+
+
+// ─── TERM INSURANCE CALCULATOR ───────────────────────────────────────────────
+
+/**
+ * Term Insurance Premium Calculator
+ * Computes premiums based on Age, Gender, Smoking, Sum Assured, Policy Term,
+ * Payment Term, Payout Frequency, and optional riders including Global Travel Cover.
+ */
+export function calculateTermInsurance(age, gender, smoking, sumAssured, policyTerm, paymentTerm, frequency, riders = {}) {
+    // Base rate per 1 Lakh of sum assured
+    let baseRate = 8; // base rate per 1 Lakh
+    
+    // Age loading
+    if (age < 25) baseRate = 8;
+    else if (age < 30) baseRate = 10;
+    else if (age < 35) baseRate = 13;
+    else if (age < 40) baseRate = 18;
+    else if (age < 45) baseRate = 25;
+    else if (age < 50) baseRate = 38;
+    else if (age < 55) baseRate = 58;
+    else baseRate = 90;
+    
+    // Smoking loading
+    if (smoking === 'tobacco') {
+        baseRate *= 1.5;
+    }
+    
+    // Gender discount for females
+    if (gender === 'female') {
+        baseRate *= 0.9;
+    }
+    
+    // Policy term loading
+    const termLoading = 1 + (policyTerm - 10) * 0.01;
+    baseRate *= termLoading;
+    
+    // Calculate raw annual base premium
+    let annualBasePremium = (baseRate * (sumAssured / 100000)) * 1000;
+    
+    // Limited pay factor: if paymentTerm < policyTerm, premiums are compressed
+    if (paymentTerm < policyTerm) {
+        const compressRatio = policyTerm / paymentTerm;
+        annualBasePremium = annualBasePremium * compressRatio * 0.85; 
+    }
+    
+    // Optional Riders
+    let accidentalDeathPremium = 0;
+    let criticalIllnessPremium = 0;
+    let waiverOfPremiumCost = 0;
+    let globalTravelPremium = 0;
+    
+    if (riders.accidentalDeath) {
+        accidentalDeathPremium = sumAssured * 0.0004; // 0.04% of sum assured
+    }
+    if (riders.criticalIllness) {
+        let ciRate = age < 30 ? 1.5 : age < 40 ? 3.0 : 6.0;
+        if (smoking === 'tobacco') ciRate *= 1.4;
+        criticalIllnessPremium = (sumAssured * (ciRate / 100000)) * 1000 * 0.15; // CI covers smaller fraction
+    }
+    if (riders.waiverOfPremium) {
+        waiverOfPremiumCost = annualBasePremium * 0.05;
+    }
+    if (riders.globalTravel) {
+        // Global travel rider: adds flat 10% premium loading for worldwide coverage
+        globalTravelPremium = annualBasePremium * 0.10;
+    }
+    
+    const totalAnnualPremium = annualBasePremium + accidentalDeathPremium + criticalIllnessPremium + waiverOfPremiumCost + globalTravelPremium;
+    
+    // Payout installment frequencies
+    let freqFactor = 1.0;
+    let periods = 1;
+    if (frequency === 'monthly') {
+        freqFactor = 0.088;
+        periods = 12;
+    } else if (frequency === 'half-yearly') {
+        freqFactor = 0.51;
+        periods = 2;
+    }
+    
+    const installmentPremium = totalAnnualPremium * freqFactor;
+    const gst = installmentPremium * 0.18; // 18% GST
+    const totalInstallmentWithGst = installmentPremium + gst;
+    
+    // Section 80C Tax savings (30% tax slab assumption)
+    const taxSaving = Math.min(totalAnnualPremium, 150000) * 0.30;
+
+    return {
+        basePremium: Math.round(annualBasePremium),
+        accidentalDeathPremium: Math.round(accidentalDeathPremium),
+        criticalIllnessPremium: Math.round(criticalIllnessPremium),
+        waiverOfPremiumCost: Math.round(waiverOfPremiumCost),
+        globalTravelPremium: Math.round(globalTravelPremium),
+        gst: Math.round(gst * periods),
+        totalAnnualPremium: Math.round(totalAnnualPremium),
+        installmentPremium: Math.round(installmentPremium),
+        installmentGst: Math.round(gst),
+        totalInstallmentWithGst: Math.round(totalInstallmentWithGst),
+        totalWithGstYearly: Math.round(totalAnnualPremium * 1.18),
+        taxSaving: Math.round(taxSaving)
+    };
+}
+
+// ─── MOTOR INSURANCE CALCULATOR ──────────────────────────────────────────────
+
+/**
+ * Motor Insurance Premium Calculator
+ * Evaluates vehicle depreciation, IDV, Own Damage base premium,
+ * No Claim Bonus (NCB) discount, Third Party pricing based on CC, and add-on costs.
+ */
+export function calculateMotorInsurance(vehicleType, exShowroom, ageYears, cc, ncbPercent, policyType, addOns = {}) {
+    // 1. Calculate Insured Declared Value (IDV) via depreciation
+    let depPercent = 5;
+    if (ageYears <= 0.5) depPercent = 5;
+    else if (ageYears <= 1) depPercent = 15;
+    else if (ageYears <= 2) depPercent = 20;
+    else if (ageYears <= 3) depPercent = 30;
+    else if (ageYears <= 4) depPercent = 40;
+    else if (ageYears <= 5) depPercent = 50;
+    else depPercent = 60; // Older vehicle
+    
+    const idv = exShowroom * (1 - depPercent / 100);
+    
+    // 2. Own Damage (OD) Base Premium (2.5% for cars, 1.8% for two-wheelers)
+    let odRate = vehicleType === 'car' ? 0.025 : 0.018;
+    let odBase = idv * odRate;
+    
+    // Apply NCB discount on OD premium
+    const ncbDiscount = odBase * (ncbPercent / 100);
+    let netODPremium = Math.max(0, odBase - ncbDiscount);
+    
+    // 3. Third Party (TP) Premium (IRDAI standards based on engine CC)
+    let tpPremium = 0;
+    if (vehicleType === 'car') {
+        if (cc < 1000) tpPremium = 2094;
+        else if (cc <= 1500) tpPremium = 3416;
+        else tpPremium = 7897;
+    } else {
+        // Two-wheeler
+        if (cc < 75) tpPremium = 538;
+        else if (cc <= 150) tpPremium = 714;
+        else if (cc <= 350) tpPremium = 1366;
+        else tpPremium = 2804;
+    }
+    
+    // 4. Add-on covers
+    let zeroDepCost = 0;
+    let engineProtectCost = 0;
+    let rsaCost = 0;
+    
+    if (addOns.zeroDep) {
+        zeroDepCost = idv * (vehicleType === 'car' ? 0.006 : 0.004);
+    }
+    if (addOns.engineProtect) {
+        engineProtectCost = idv * 0.0015;
+    }
+    if (addOns.rsa) {
+        rsaCost = vehicleType === 'car' ? 350 : 150;
+    }
+    
+    const totalAddons = zeroDepCost + engineProtectCost + rsaCost;
+    
+    // 5. Net premium calculation based on selected policy type
+    let netPremium = 0;
+    if (policyType === 'comprehensive') {
+        netPremium = netODPremium + tpPremium + totalAddons;
+    } else if (policyType === 'od_only') {
+        netPremium = netODPremium + totalAddons;
+    } else if (policyType === 'tp_only') {
+        netPremium = tpPremium; // No add-ons allowed under pure TP policy
+    }
+    
+    // 6. GST (18%)
+    const gst = netPremium * 0.18;
+    const finalPremium = netPremium + gst;
+    
+    return {
+        idv: Math.round(idv),
+        depPercent,
+        odBase: Math.round(odBase),
+        ncbDiscount: Math.round(ncbDiscount),
+        netODPremium: Math.round(netODPremium),
+        tpPremium: Math.round(tpPremium),
+        addonsCost: Math.round(totalAddons),
+        zeroDepCost: Math.round(zeroDepCost),
+        engineProtectCost: Math.round(engineProtectCost),
+        rsaCost: Math.round(rsaCost),
+        netPremium: Math.round(netPremium),
+        gst: Math.round(gst),
+        finalPremium: Math.round(finalPremium)
+    };
+}
+
+
+
+// ─── TAX PLANNING CALCULATOR ─────────────────────────────────────────────────
+
+function computeNewRegimeTax(income) {
+    if (income <= 700000) return 0; // Section 87A rebate makes tax zero for taxable income <= 7L
+    
+    let tax = 0;
+    // Slabs for New Tax Regime (FY 2025-26 / 2026-27):
+    // Up to 3,00,000: Nil
+    // 3,00,001 to 7,00,000: 5% (Max 20,000)
+    // 7,00,001 to 10,00,000: 10% (Max 30,000)
+    // 10,00,001 to 12,00,000: 15% (Max 30,000)
+    // 12,00,001 to 15,00,000: 20% (Max 60,000)
+    // Above 15,00,000: 30%
+    if (income > 1500000) {
+        tax += (income - 1500000) * 0.30 + 60000 + 30000 + 30000 + 20000;
+    } else if (income > 1200000) {
+        tax += (income - 1200000) * 0.20 + 30000 + 30000 + 20000;
+    } else if (income > 1000000) {
+        tax += (income - 1000000) * 0.15 + 30000 + 20000;
+    } else if (income > 700000) {
+        tax += (income - 700000) * 0.10 + 20000;
+    } else if (income > 300000) {
+        tax += (income - 300000) * 0.05;
+    }
+    return tax;
+}
+
+function computeOldRegimeTax(income) {
+    if (income <= 500000) return 0; // Section 87A rebate makes tax zero for taxable income <= 5L
+    
+    let tax = 0;
+    // Slabs for Old Tax Regime:
+    // Up to 2,50,000: Nil
+    // 2,50,001 to 5,00,000: 5% (Max 12,500)
+    // 5,00,001 to 10,00,000: 20% (Max 1,00,000)
+    // Above 10,00,000: 30%
+    if (income > 1000000) {
+        tax += (income - 1000000) * 0.30 + 100000 + 12500;
+    } else if (income > 500000) {
+        tax += (income - 500000) * 0.20 + 12500;
+    } else if (income > 250000) {
+        tax += (income - 250000) * 0.05;
+    }
+    return tax;
+}
+
+/**
+ * Income Tax Planner (Old vs New Regime)
+ */
+export function calculateTaxPlanning(grossSalary, otherIncome, deduction80C, deduction80D, homeLoanInterest, otherDeductions) {
+    // 1. Calculate taxable income under New Regime
+    // Only standard deduction of ₹75,000 is allowed. No other Chapter VI-A deductions are allowed.
+    const newRegimeStdDeduction = 75000;
+    const grossIncome = grossSalary + otherIncome;
+    const newTaxableIncome = Math.max(0, grossIncome - newRegimeStdDeduction);
+    const rawNewTax = computeNewRegimeTax(newTaxableIncome);
+    const newCess = rawNewTax * 0.04;
+    const finalNewTax = rawNewTax + newCess;
+
+    // 2. Calculate taxable income under Old Regime
+    // Standard deduction of ₹50,000 + 80C (max 1.5L) + 80D (max 25k) + Home loan interest (max 2L) + Other Deductions
+    const oldRegimeStdDeduction = 50000;
+    const capped80C = Math.min(150000, deduction80C);
+    const capped80D = Math.min(25000, deduction80D);
+    const cappedHomeLoan = Math.min(200000, homeLoanInterest);
+    
+    const totalOldDeductions = oldRegimeStdDeduction + capped80C + capped80D + cappedHomeLoan + otherDeductions;
+    const oldTaxableIncome = Math.max(0, grossIncome - totalOldDeductions);
+    const rawOldTax = computeOldRegimeTax(oldTaxableIncome);
+    const oldCess = rawOldTax * 0.04;
+    const finalOldTax = rawOldTax + oldCess;
+
+    // 3. Recommendation
+    const taxSaved = Math.abs(finalOldTax - finalNewTax);
+    const recommendedRegime = finalNewTax < finalOldTax ? 'New Tax Regime' : 'Old Tax Regime';
+    
+    return {
+        grossIncome,
+        newTaxableIncome: Math.round(newTaxableIncome),
+        oldTaxableIncome: Math.round(oldTaxableIncome),
+        newRegimeDeductions: newRegimeStdDeduction,
+        oldRegimeDeductions: totalOldDeductions,
+        newTax: Math.round(finalNewTax),
+        oldTax: Math.round(finalOldTax),
+        newRegimeCess: Math.round(newCess),
+        oldRegimeCess: Math.round(oldCess),
+        taxSaved: Math.round(taxSaved),
+        recommendedRegime
+    };
+}
+
+// ─── RISK MANAGEMENT & ASSET ALLOCATION CALCULATOR ────────────────────────────
+
+/**
+ * Risk Assessment, Asset Allocation, and Protection Sufficiency Calculator
+ */
+export function calculateRiskManagement(age, monthlyExpenses, currentSavings, riskLevel, annualIncome, currentTermCover, currentHealthCover, outstandingDebts) {
+    // 1. Asset Allocation suggestions based on "100 - age" rule & Risk Profile
+    const baseEquity = Math.max(10, Math.min(90, 100 - age));
+    let equity = 50;
+    let debt = 30;
+    let gold = 10;
+    let cash = 10;
+
+    if (riskLevel === 'conservative') {
+        equity = Math.round(baseEquity * 0.6);
+        debt = Math.round((100 - equity) * 0.70);
+        gold = Math.round((100 - equity) * 0.20);
+        cash = 100 - equity - debt - gold;
+    } else if (riskLevel === 'moderate') {
+        equity = baseEquity;
+        debt = Math.round((100 - equity) * 0.65);
+        gold = Math.round((100 - equity) * 0.20);
+        cash = 100 - equity - debt - gold;
+    } else {
+        // aggressive
+        equity = Math.min(85, Math.round(baseEquity * 1.3));
+        debt = Math.round((100 - equity) * 0.50);
+        gold = Math.round((100 - equity) * 0.35);
+        cash = 100 - equity - debt - gold;
+    }
+
+    // 2. Emergency Fund Check (6 months of monthly expenses, 9 months for conservative)
+    const multiplier = riskLevel === 'conservative' ? 9 : 6;
+    const recommendedEmergency = monthlyExpenses * multiplier;
+    const emergencyFundStatus = currentSavings >= recommendedEmergency ? 'Adequate' : 'Underfunded';
+    const emergencyGap = Math.max(0, recommendedEmergency - currentSavings);
+
+    // 3. Term Insurance Coverage Adequacy (10x annual income + outstanding debts)
+    const recommendedTerm = (10 * annualIncome) + outstandingDebts;
+    const termAdequacy = currentTermCover >= recommendedTerm ? 'Adequate' : 'Underfunded';
+    const termGap = Math.max(0, recommendedTerm - currentTermCover);
+
+    // 4. Health Insurance Coverage Adequacy (Higher of 5 Lakhs or 50% of annual income)
+    const recommendedHealth = Math.max(500000, annualIncome * 0.5);
+    const healthAdequacy = currentHealthCover >= recommendedHealth ? 'Adequate' : 'Underfunded';
+    const healthGap = Math.max(0, recommendedHealth - currentHealthCover);
+
+    return {
+        allocation: { equity, debt, gold, cash },
+        recommendedEmergency: Math.round(recommendedEmergency),
+        emergencyFundStatus,
+        emergencyGap: Math.round(emergencyGap),
+        recommendedTerm: Math.round(recommendedTerm),
+        termAdequacy,
+        termGap: Math.round(termGap),
+        recommendedHealth: Math.round(recommendedHealth),
+        healthAdequacy,
+        healthGap: Math.round(healthGap)
+    };
+}
+
+
 // ─── FORMATTING UTILITIES ─────────────────────────────────────────────────────
 
 /**
