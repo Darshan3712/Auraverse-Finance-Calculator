@@ -1,36 +1,37 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Marcellus&display=swap');
 
 /* ─── CSS Variables ──────────────────────────────────────────────────────── */
 :root {
-  --bg-primary: #f3f6fb;
-  --bg-secondary: #eaf0f9;
+  --bg-primary: #f9fafb;
+  --bg-secondary: #e5e7eb;
   --bg-card: #ffffff;
-  --bg-card-hover: #f8faff;
-  --bg-sidebar: #1e293b;
+  --bg-card-hover: #f9fafb;
+  --bg-sidebar: #000c22;
   --bg-input: #f1f5f9;
 
-  --accent-primary: #3b7ef8;
-  --accent-secondary: #7c3aed;
+  /* Primary brand colors from AuraVerse reference site */
+  --accent-primary: #2e3a8c;
+  --accent-secondary: #6d5df6;
   --accent-success: #10b981;
   --accent-warning: #f59e0b;
   --accent-danger: #ef4444;
-  --accent-gold: #f59e0b;
+  --accent-gold: #d4af37;
 
-  --gradient-primary: linear-gradient(135deg, #3b7ef8, #7c3aed);
+  --gradient-primary: linear-gradient(135deg, #2e3a8c, #6d5df6);
   --gradient-success: linear-gradient(135deg, #10b981, #059669);
-  --gradient-gold: linear-gradient(135deg, #f59e0b, #d97706);
+  --gradient-gold: linear-gradient(135deg, #d4af37, #b8960c);
   --gradient-card: linear-gradient(145deg, #ffffff, #f1f5f9);
 
-  --text-primary: #1e293b;
-  --text-secondary: #475569;
-  --text-muted: #94a3b8;
-  --text-accent: #3b7ef8;
+  --text-primary: #0a0a0a;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --text-accent: #2e3a8c;
 
-  --border-color: rgba(59, 126, 248, 0.18);
+  --border-color: rgba(46, 58, 140, 0.18);
   --border-subtle: rgba(0, 0, 0, 0.07);
 
-  --shadow-card: 0 4px 24px rgba(59, 126, 248, 0.08);
-  --shadow-glow: 0 0 30px rgba(59, 126, 248, 0.12);
+  --shadow-card: 0 4px 24px rgba(46, 58, 140, 0.08);
+  --shadow-glow: 0 0 30px rgba(46, 58, 140, 0.12);
   --shadow-input: inset 0 1px 4px rgba(0, 0, 0, 0.07);
 
   --radius-sm: 8px;
@@ -113,28 +114,23 @@ input[type='number'] {
 }
 
 .sidebar-brand {
-  padding: 20px 20px 16px;
+  padding: 0;
   border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
+  overflow: hidden;
 }
 
-.sidebar-brand-text {
-  font-size: 18px;
-  font-weight: 800;
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  line-height: 1.2;
-}
-
-.sidebar-brand-sub {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-top: 2px;
-  font-weight: 500;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+.sidebar-logo {
+  width: 80%;
+  max-width: 100%;
+  max-height: 150px;
+  height: auto;
+  display: block;
+  margin: -6% auto;
+  object-fit: contain;
+  /* Tint to exact gold (#d4af37) matching theme headings */
+  filter: brightness(0) saturate(100%) invert(76%) sepia(76%) saturate(651%) hue-rotate(357deg) brightness(101%) contrast(104%);
+  opacity: 1;
 }
 
 .sidebar-nav {
@@ -205,9 +201,9 @@ input[type='number'] {
 }
 
 .sidebar-item.active {
-  color: #93c5fd;
-  background: rgba(255, 255, 255, 0.12);
-  border-left-color: #93c5fd;
+  color: var(--accent-gold);
+  background: rgba(212, 175, 55, 0.1);
+  border-left-color: var(--accent-gold);
   font-weight: 600;
 }
 
@@ -258,13 +254,12 @@ input[type='number'] {
 }
 
 .calc-title {
-  font-size: 24px;
-  font-weight: 800;
+  font-size: 26px;
+  font-weight: 400;
+  font-family: 'Marcellus', serif;
   margin-bottom: 4px;
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--accent-gold);
+  letter-spacing: 0.01em;
 }
 
 .calc-subtitle {
@@ -355,7 +350,7 @@ input[type='number'] {
 
 .input-field:focus {
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px rgba(59, 126, 248, 0.15);
+  box-shadow: 0 0 0 3px rgba(46, 58, 140, 0.15);
 }
 
 .input-field.wide {
@@ -390,27 +385,27 @@ input[type='number'] {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--accent-primary);
+  background: var(--accent-gold);
   cursor: pointer;
   margin-top: -7px;
-  box-shadow: 0 2px 8px rgba(59, 126, 248, 0.5);
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.5);
   border: 3px solid #ffffff;
   transition: var(--transition);
 }
 
 .range-slider::-webkit-slider-thumb:hover {
   transform: scale(1.2);
-  box-shadow: 0 4px 16px rgba(59, 126, 248, 0.6);
+  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.6);
 }
 
 .range-slider::-moz-range-thumb {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--accent-primary);
+  background: var(--accent-gold);
   cursor: pointer;
   border: 3px solid #ffffff;
-  box-shadow: 0 2px 8px rgba(59, 126, 248, 0.5);
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.5);
 }
 
 .range-slider::-webkit-slider-runnable-track {
@@ -987,13 +982,12 @@ input[type='number'] {
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
   }
 
-  .mobile-brand {
-    font-size: 16px;
-    font-weight: 800;
-    background: var(--gradient-primary);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  .mobile-logo {
+    height: 36px;
+    width: auto;
+    display: block;
+    filter: brightness(0) saturate(100%) invert(76%) sepia(76%) saturate(651%) hue-rotate(357deg) brightness(101%) contrast(104%);
+    opacity: 1;
   }
 
   /* ── Hamburger button ── */
