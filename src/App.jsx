@@ -254,9 +254,19 @@ export default function App() {
     };
   }, []);
 
+  // Scroll to top when active calculator/page changes
+  useEffect(() => {
+    const mainContainer = document.querySelector('.main-content');
+    if (mainContainer) {
+      mainContainer.scrollTop = 0;
+    }
+    window.scrollTo(0, 0);
+  }, [activeId]);
+
   const toggleCategory = (id) => {
     setOpenCategories(prev => ({ ...prev, [id]: !prev[id] }));
     window.location.hash = `#/${id}`;
+    setMobileOpen(false); // Close sidebar on mobile when main category is clicked
   };
 
   const handleItemClick = (id) => {
