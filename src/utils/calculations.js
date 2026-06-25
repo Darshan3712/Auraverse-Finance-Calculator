@@ -885,6 +885,291 @@ export function calculateRiskManagement(age, monthlyExpenses, currentSavings, ri
 }
 
 
+// ─── INFLATION RATE CALCULATOR ───────────────────────────────────────────────
+
+/**
+ * Inflation Rate Calculator
+ * Computes future cost of today's goods/services considering compound inflation.
+ * Also shows purchasing power erosion, year-wise breakdown, and the Rule of 72 doubling time.
+ *
+ * @param {number} currentCost - Today's cost/value of the item (₹)
+ * @param {number} inflationRate - Expected annual inflation rate (%)
+ * @param {number} years - Time period in years
+ * @returns {object} futureCost, inflationCost, purchasingPower, doublingTime, yearlyBreakdown
+ */
+export function calculateInflation(currentCost, inflationRate, years) {
+    const r = inflationRate / 100;
+
+    // Future cost using compound inflation: FC = P × (1 + r)^n
+    const futureCost = Math.round(currentCost * Math.pow(1 + r, years));
+    const inflationCost = futureCost - currentCost;
+
+    // Purchasing power: how many rupees of today's value remain in ₹100 after n years
+    // PP = (1 / (1 + r)^n) × 100
+    const purchasingPower = (1 / Math.pow(1 + r, years)) * 100;
+
+    // Rule of 72: years to double prices
+    const doublingTime = 72 / inflationRate;
+
+    // Year-by-year breakdown
+    const yearlyBreakdown = [];
+    for (let y = 1; y <= years; y++) {
+        const fc = Math.round(currentCost * Math.pow(1 + r, y));
+        const erosion = fc - currentCost;
+        const pp = (1 / Math.pow(1 + r, y)) * 100;
+        yearlyBreakdown.push({
+            year: y,
+            futureCost: fc,
+            erosion,
+            purchasingPower: parseFloat(pp.toFixed(2)),
+        });
+    }
+
+    return {
+        futureCost,
+        inflationCost,
+        purchasingPower: parseFloat(purchasingPower.toFixed(2)),
+        doublingTime,
+        yearlyBreakdown,
+    };
+}
+
+
+
+// ─── PENSION CALCULATOR ───────────────────────────────────────────────────────
+
+/**
+ * SECTION 1: How much to invest to get a target monthly pension?
+ *
+ * Steps:
+ * 1. Inflate the desired monthly pension to its real future value at retirement
+ *    (since ₹X today won't have same value after `accumulationYears`)
+ * 2. Compute the corpus needed at retirement via PV of an annuity (drawdown phase)
+ * 3. Reverse-compute the required periodic investment during accumulation phase
+ *
+ * @param {number} desiredMonthlyPension - Monthly pension desired at retirement (today's ₹)
+ * @param {number} accumulationYears     - Years of investment / accumulation phase
+ * @param {number} drawdownYears         - Years pension will be drawn after retirement
+ * @param {number} annualReturnRate      - Expected annual return during accumulation (%)
+ * @param {number} drawdownReturnRate    - Expected annual return during drawdown (%)
+ * @param {number} inflationRate         - Annual inflation rate (%)
+ * @param {'monthly'|'half-yearly'|'yearly'|'lumpsum'} frequency - Contribution frequency
+ */
+export function calculatePensionToTarget(
+    desiredMonthlyPension,
+    accumulationYears,
+    drawdownYears,
+    annualReturnRate,
+    drawdownReturnRate,
+    inflationRate,
+    frequency
+) {
+    const inf = inflationRate / 100;
+
+    // 1. Future value of the desired monthly pension (inflation-adjusted at retirement)
+    const futureMonthlPension = desiredMonthlyPension * Math.pow(1 + inf, accumulationYears);
+    const futureAnnualPension  = futureMonthlPension * 12;
+
+    // 2. Corpus needed at retirement (PV of inflation-adjusted annuity during drawdown)
+    const postR   = drawdownReturnRate / 100;
+    const realRate = (1 + postR) / (1 + inf) - 1;
+    let corpusNeeded;
+    if (Math.abs(realRate) < 0.0001) {
+        corpusNeeded = futureAnnualPension * drawdownYears;
+    } else {
+        corpusNeeded = futureAnnualPension * ((1 - Math.pow(1 + realRate, -drawdownYears)) / realRate);
+    }
+
+    // 3. Required periodic investment during accumulation
+    const r = annualReturnRate / 100;
+    const rm = r / 12; // monthly rate
+    const n  = accumulationYears;
+
+    let requiredInvestment = 0;
+    let totalInvested = 0;
+    let periodsLabel = '';
+
+    if (frequency === 'lumpsum') {
+        // PV of lump-sum: Invest = corpusNeeded / (1 + r)^n
+        requiredInvestment = corpusNeeded / Math.pow(1 + r, n);
+        totalInvested = requiredInvestment;
+        periodsLabel  = 'One-Time';
+    } else if (frequency === 'monthly') {
+        // Monthly SIP reverse formula
+        const nm = n * 12;
+        requiredInvestment = corpusNeeded * rm / ((Math.pow(1 + rm, nm) - 1) * (1 + rm));
+        totalInvested = requiredInvestment * nm;
+        periodsLabel  = '/month';
+    } else if (frequency === 'half-yearly') {
+        const r6 = Math.pow(1 + r, 0.5) - 1; // effective 6-month rate
+        const n6 = n * 2;
+        requiredInvestment = corpusNeeded * r6 / ((Math.pow(1 + r6, n6) - 1) * (1 + r6));
+        totalInvested = requiredInvestment * n6;
+        periodsLabel  = '/half-year';
+    } else {
+        // Yearly
+        const n1 = n;
+        requiredInvestment = corpusNeeded * r / ((Math.pow(1 + r, n1) - 1) * (1 + r));
+        totalInvested = requiredInvestment * n1;
+        periodsLabel  = '/year';
+    }
+
+    const wealthGained = corpusNeeded - totalInvested;
+
+    // Year-wise corpus growth breakdown
+    const yearlyBreakdown = [];
+    let accum = frequency === 'lumpsum' ? requiredInvestment : 0;
+    for (let y = 1; y <= accumulationYears; y++) {
+        if (frequency === 'lumpsum') {
+            accum = requiredInvestment * Math.pow(1 + r, y);
+        } else if (frequency === 'monthly') {
+            const months = y * 12;
+            accum = requiredInvestment * ((Math.pow(1 + rm, months) - 1) / rm) * (1 + rm);
+        } else if (frequency === 'half-yearly') {
+            const r6 = Math.pow(1 + r, 0.5) - 1;
+            const periods = y * 2;
+            accum = requiredInvestment * ((Math.pow(1 + r6, periods) - 1) / r6) * (1 + r6);
+        } else {
+            // yearly
+            accum = requiredInvestment * ((Math.pow(1 + r, y) - 1) / r) * (1 + r);
+        }
+
+        const invested = frequency === 'lumpsum' ? requiredInvestment
+            : frequency === 'monthly' ? requiredInvestment * y * 12
+            : frequency === 'half-yearly' ? requiredInvestment * y * 2
+            : requiredInvestment * y;
+
+        yearlyBreakdown.push({
+            year: y,
+            invested: Math.round(invested),
+            corpusValue: Math.round(accum),
+        });
+    }
+
+    return {
+        requiredInvestment: Math.round(requiredInvestment),
+        corpusNeeded: Math.round(corpusNeeded),
+        futureMonthlPension: Math.round(futureMonthlPension),
+        totalInvested: Math.round(totalInvested),
+        wealthGained: Math.round(wealthGained),
+        periodsLabel,
+        yearlyBreakdown,
+    };
+}
+
+/**
+ * SECTION 2: If I invest ₹X periodically, how much monthly pension will I get?
+ *
+ * Steps:
+ * 1. Compute the corpus at retirement from the periodic investment
+ * 2. Calculate the sustainable monthly pension from that corpus during drawdown,
+ *    accounting for inflation so real purchasing power is maintained.
+ *
+ * @param {number} investmentAmount      - Amount invested per period (₹)
+ * @param {number} accumulationYears     - Years of investment / accumulation
+ * @param {number} drawdownYears         - Years pension will be drawn
+ * @param {number} annualReturnRate      - Expected annual return during accumulation (%)
+ * @param {number} drawdownReturnRate    - Expected return during drawdown (%)
+ * @param {number} inflationRate         - Annual inflation rate (%)
+ * @param {'monthly'|'half-yearly'|'yearly'|'lumpsum'} frequency - Contribution frequency
+ */
+export function calculatePensionFromInvestment(
+    investmentAmount,
+    accumulationYears,
+    drawdownYears,
+    annualReturnRate,
+    drawdownReturnRate,
+    inflationRate,
+    frequency
+) {
+    const r  = annualReturnRate / 100;
+    const rm = r / 12;
+    const n  = accumulationYears;
+
+    // 1. Corpus at retirement
+    let corpus = 0;
+    let totalInvested = 0;
+    let periodsLabel = '';
+
+    if (frequency === 'lumpsum') {
+        corpus = investmentAmount * Math.pow(1 + r, n);
+        totalInvested = investmentAmount;
+        periodsLabel  = 'One-Time';
+    } else if (frequency === 'monthly') {
+        const nm = n * 12;
+        corpus = investmentAmount * ((Math.pow(1 + rm, nm) - 1) / rm) * (1 + rm);
+        totalInvested = investmentAmount * nm;
+        periodsLabel  = '/month';
+    } else if (frequency === 'half-yearly') {
+        const r6 = Math.pow(1 + r, 0.5) - 1;
+        const n6 = n * 2;
+        corpus = investmentAmount * ((Math.pow(1 + r6, n6) - 1) / r6) * (1 + r6);
+        totalInvested = investmentAmount * n6;
+        periodsLabel  = '/half-year';
+    } else {
+        // yearly
+        corpus = investmentAmount * ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
+        totalInvested = investmentAmount * n;
+        periodsLabel  = '/year';
+    }
+
+    // 2. Monthly pension from corpus (real-rate annuity to maintain purchasing power)
+    const inf      = inflationRate / 100;
+    const postR    = drawdownReturnRate / 100;
+    const realRate = (1 + postR) / (1 + inf) - 1;
+
+    let monthlyPension = 0;
+    if (Math.abs(realRate) < 0.0001) {
+        monthlyPension = (corpus / drawdownYears) / 12;
+    } else {
+        const annualPension = corpus * realRate / (1 - Math.pow(1 + realRate, -drawdownYears));
+        monthlyPension = annualPension / 12;
+    }
+
+    // Inflation-eroded monthly pension (today's purchasing power equivalent)
+    const todayEquivalentPension = monthlyPension / Math.pow(1 + inf, accumulationYears);
+
+    const returnsEarned = corpus - totalInvested;
+
+    // Year-wise corpus growth breakdown
+    const yearlyBreakdown = [];
+    for (let y = 1; y <= accumulationYears; y++) {
+        let accum = 0;
+        if (frequency === 'lumpsum') {
+            accum = investmentAmount * Math.pow(1 + r, y);
+        } else if (frequency === 'monthly') {
+            const months = y * 12;
+            accum = investmentAmount * ((Math.pow(1 + rm, months) - 1) / rm) * (1 + rm);
+        } else if (frequency === 'half-yearly') {
+            const r6 = Math.pow(1 + r, 0.5) - 1;
+            const periods = y * 2;
+            accum = investmentAmount * ((Math.pow(1 + r6, periods) - 1) / r6) * (1 + r6);
+        } else {
+            accum = investmentAmount * ((Math.pow(1 + r, y) - 1) / r) * (1 + r);
+        }
+        const invested = frequency === 'lumpsum' ? investmentAmount
+            : frequency === 'monthly' ? investmentAmount * y * 12
+            : frequency === 'half-yearly' ? investmentAmount * y * 2
+            : investmentAmount * y;
+
+        yearlyBreakdown.push({
+            year: y,
+            invested: Math.round(invested),
+            corpusValue: Math.round(accum),
+        });
+    }
+
+    return {
+        corpus: Math.round(corpus),
+        totalInvested: Math.round(totalInvested),
+        returnsEarned: Math.round(returnsEarned),
+        monthlyPension: Math.round(monthlyPension),
+        todayEquivalentPension: Math.round(todayEquivalentPension),
+        periodsLabel,
+        yearlyBreakdown,
+    };
+}
+
 // ─── FORMATTING UTILITIES ─────────────────────────────────────────────────────
 
 /**

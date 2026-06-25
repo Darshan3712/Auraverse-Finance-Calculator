@@ -30,6 +30,8 @@ import RetirementPlanning from './calculators/planning/RetirementPlanning';
 import GoalPlanning from './calculators/planning/GoalPlanning';
 import TaxPlanning from './calculators/planning/TaxPlanning';
 import RiskManagement from './calculators/planning/RiskManagement';
+import InflationCalculator from './calculators/planning/InflationCalculator';
+import PensionCalculator from './calculators/planning/PensionCalculator';
 
 const CATEGORIES = [
   {
@@ -80,6 +82,8 @@ const CATEGORIES = [
       { id: 'goal-planning', label: 'Goal Based Planner', icon: '🎯', component: <GoalPlanning /> },
       { id: 'tax-planning', label: 'Tax Planner', icon: '📝', component: <TaxPlanning /> },
       { id: 'risk-management', label: 'Risk Management', icon: '🛡️', component: <RiskManagement /> },
+      { id: 'inflation-calculator', label: 'Inflation Calculator', icon: '📉', component: <InflationCalculator /> },
+      { id: 'pension-calculator', label: 'Pension Calculator', icon: '🧓', component: <PensionCalculator /> },
     ],
   },
 ];
@@ -131,6 +135,10 @@ const getCardDescription = (id) => {
       return 'Compare Old vs New Tax Regimes, compute rebates under Section 87A, and optimize tax-saving investments.';
     case 'risk-management':
       return 'Audit portfolio asset allocation weights, assess emergency cash reserves, and review term and health insurance sufficiency.';
+    case 'inflation-calculator':
+      return 'See how inflation erodes your purchasing power over time. Calculate future costs of goods, services, and goals with year-wise breakdowns and category-wise reference rates.';
+    case 'pension-calculator':
+      return 'Plan your retirement income. Find out how much to invest for a target monthly pension, or how much pension your investment will generate — both inflation-adjusted with multiple investment frequency options.';
     default:
       return 'Calculate your financial details easily.';
   }
