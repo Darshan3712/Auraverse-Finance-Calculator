@@ -165,18 +165,54 @@ export function calculateFD(principal, annualRate, years, compoundingFrequency =
  * PPF uses annual compounding: A = P × [(1+r)^n - 1] × (1+r) / r
  * But PPF allows yearly deposits, so we sum each year's compounding
  */
-export function calculatePPF(yearlyDeposit, years, rate = 7.1) {
+export function calculatePPF(amount, years, rate = 7.1, frequency = 'yearly') {
     const r = rate / 100;
-    let total = 0;
-    for (let y = 1; y <= years; y++) {
-        total += yearlyDeposit * Math.pow(1 + r, years - y + 1);
+    let balance = 0;
+    let totalDeposited = 0;
+    
+    // Determine annual deposit amount and interest factor based on frequency
+    let annualDeposit = 0;
+    let interestFactor = 0; // portion of P that earns interest for the year
+    
+    if (frequency === 'monthly') {
+        annualDeposit = amount * 12;
+        interestFactor = 6.5; // sum(1..12) / 12 = 78/12 = 6.5
+    } else if (frequency === 'quarterly') {
+        annualDeposit = amount * 4;
+        interestFactor = 2.5; // (3*1 + 3*2 + 3*3 + 3*4)/12 = 30/12 = 2.5
+    } else if (frequency === 'half-yearly') {
+        annualDeposit = amount * 2;
+        interestFactor = 1.5; // (6*1 + 6*2)/12 = 18/12 = 1.5
+    } else {
+        // yearly or lumpsum
+        annualDeposit = amount;
+        interestFactor = 1.0; // 12/12 = 1.0
     }
-    const totalDeposited = yearlyDeposit * years;
-    const totalInterest = total - totalDeposited;
+
+    const yearlyBreakdown = [];
+    
+    for (let y = 1; y <= years; y++) {
+        const openingBalance = balance;
+        const interestEarned = (openingBalance * r) + (amount * r * interestFactor);
+        
+        balance = openingBalance + annualDeposit + interestEarned;
+        totalDeposited += annualDeposit;
+        
+        yearlyBreakdown.push({
+            year: y,
+            deposited: Math.round(totalDeposited),
+            interest: Math.round(interestEarned),
+            balance: Math.round(balance),
+        });
+    }
+
+    const totalInterest = balance - totalDeposited;
+    
     return {
-        maturity: Math.round(total),
+        maturity: Math.round(balance),
         totalDeposited: Math.round(totalDeposited),
         totalInterest: Math.round(totalInterest),
+        yearlyBreakdown,
     };
 }
 
