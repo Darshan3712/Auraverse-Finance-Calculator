@@ -49,7 +49,6 @@ function calcPeriodicFV(amount, annualRate, years, frequency) {
  * Year-wise breakdown for a periodic investment.
  */
 function calcYearlyBreakdown(amount, annualRate, investYears, frequency) {
-    const r = annualRate / 100;
     const rows = [];
 
     for (let y = 1; y <= investYears; y++) {
@@ -59,6 +58,54 @@ function calcYearlyBreakdown(amount, annualRate, investYears, frequency) {
             invested: res.invested,
             value: res.fv,
         });
+    }
+    return rows;
+}
+
+/**
+ * Step-up SIP: compute future value after `targetYears` years.
+ * The investment amount increases by stepUpRate% every year.
+ * Supports monthly, half-yearly, and yearly frequencies.
+ */
+function calcStepUpFV(amount, annualRate, targetYears, stepUpRate, frequency = 'monthly') {
+    const r = annualRate / 100; // annual rate
+    const g = stepUpRate / 100;
+
+    let periodicRate, paymentsPerYear, annualFV1Yr;
+    if (frequency === 'monthly') {
+        periodicRate = r / 12;
+        paymentsPerYear = 12;
+        annualFV1Yr = ((Math.pow(1 + periodicRate, 12) - 1) / periodicRate) * (1 + periodicRate);
+    } else if (frequency === 'half-yearly') {
+        periodicRate = Math.pow(1 + r, 0.5) - 1;
+        paymentsPerYear = 2;
+        annualFV1Yr = ((Math.pow(1 + periodicRate, 2) - 1) / periodicRate) * (1 + periodicRate);
+    } else {
+        // yearly: single payment at start of year (annuity-due), grows for 1 year
+        periodicRate = r;
+        paymentsPerYear = 1;
+        annualFV1Yr = 1 + r;
+    }
+
+    let fv = 0;
+    let invested = 0;
+    for (let y = 1; y <= targetYears; y++) {
+        const P = amount * Math.pow(1 + g, y - 1);
+        const rem = targetYears - y; // remaining full years after year y
+        fv += P * annualFV1Yr * Math.pow(1 + periodicRate, rem * paymentsPerYear);
+        invested += P * paymentsPerYear;
+    }
+    return { fv: Math.round(fv), invested: Math.round(invested) };
+}
+
+/**
+ * Year-wise breakdown for Step-up SIP (any frequency).
+ */
+function calcStepUpYearlyBreakdown(amount, annualRate, investYears, stepUpRate, frequency = 'monthly') {
+    const rows = [];
+    for (let y = 1; y <= investYears; y++) {
+        const { fv, invested } = calcStepUpFV(amount, annualRate, y, stepUpRate, frequency);
+        rows.push({ year: y, invested, value: fv });
     }
     return rows;
 }
@@ -197,29 +244,21 @@ export default function SIP() {
 
     /* ── Regular SIP result ── */
     const result = useMemo(() => {
-        if (stepUp && frequency === 'monthly') {
-            // Step-up only meaningful for monthly
-            const r = rate / 12 / 100;
-            const g = stepUpRate / 100;
-            const annualFV = ((Math.pow(1 + r, 12) - 1) / r) * (1 + r);
-            let fv = 0, invested = 0;
-            for (let y = 1; y <= years; y++) {
-                const P = amount * Math.pow(1 + g, y - 1);
-                const rem = years - y;
-                fv += P * annualFV * Math.pow(1 + r, rem * 12);
-                invested += P * 12;
-            }
-            return { fv: Math.round(fv), invested: Math.round(invested), returns: Math.round(fv - invested) };
+        if (stepUp && frequency !== 'lumpsum') {
+            const { fv, invested } = calcStepUpFV(amount, rate, years, stepUpRate, frequency);
+            return { fv, invested, returns: fv - invested };
         }
         const res = calcPeriodicFV(amount, rate, years, frequency);
         return { fv: res.fv, invested: res.invested, returns: res.returns };
     }, [amount, rate, years, frequency, stepUp, stepUpRate]);
 
-    /* ── Year-wise breakdown for regular SIP ── */
-    const yearlyBreakdown = useMemo(
-        () => calcYearlyBreakdown(amount, rate, years, frequency),
-        [amount, rate, years, frequency]
-    );
+    /* ── Year-wise breakdown for regular SIP (or Step-up SIP) ── */
+    const yearlyBreakdown = useMemo(() => {
+        if (stepUp && frequency !== 'lumpsum') {
+            return calcStepUpYearlyBreakdown(amount, rate, years, stepUpRate, frequency);
+        }
+        return calcYearlyBreakdown(amount, rate, years, frequency);
+    }, [amount, rate, years, frequency, stepUp, stepUpRate]);
 
     /* ── Early-Stop result ── */
     const esResult = useMemo(
@@ -240,10 +279,17 @@ export default function SIP() {
     const displayRows    = showTable ? yearlyBreakdown : yearlyBreakdown.slice(0, 5);
     const esDisplayRows  = esShowAll ? esResult.rows  : esResult.rows.slice(0, 8);
 
-    // Milestones for regular SIP
-    const milestones = [3, 5, 7, 10, 15, 20, 25, 30]
-        .filter(y => y <= years)
-        .map(y => ({ year: y, value: calcPeriodicFV(amount, rate, y, frequency).fv }));
+    // Milestones — use step-up logic when active
+    const milestones = useMemo(() =>
+        [3, 5, 7, 10, 15, 20, 25, 30]
+            .filter(y => y <= years)
+            .map(y => ({
+                year: y,
+                value: (stepUp && frequency !== 'lumpsum')
+                    ? calcStepUpFV(amount, rate, y, stepUpRate, frequency).fv
+                    : calcPeriodicFV(amount, rate, y, frequency).fv,
+            }))
+    , [amount, rate, years, frequency, stepUp, stepUpRate]);
 
     return (
         <div className="calc-container">
@@ -299,8 +345,8 @@ export default function SIP() {
                     <SliderInput label="Expected Annual Return" value={rate} onChange={setRate} min={1} max={30} step={0.5} unit="%" />
                     <SliderInput label="Investment Period" value={years} onChange={setYears} min={1} max={40} step={1} unit="Years" />
 
-                    {/* Step-up toggle — only for monthly */}
-                    {frequency === 'monthly' && (
+                    {/* Step-up toggle — available for all periodic frequencies (not lumpsum) */}
+                    {frequency !== 'lumpsum' && (
                         <>
                             <div className="section-divider" />
                             <div className="stepup-toggle-row" onClick={() => setStepUp(e => !e)}>
@@ -310,7 +356,7 @@ export default function SIP() {
                                     </div>
                                     <div>
                                         <div className="stepup-label">Step-up SIP</div>
-                                        <div className="stepup-desc">Increase SIP every year</div>
+                                        <div className="stepup-desc">Increase {frequency === 'yearly' ? 'yearly' : frequency === 'half-yearly' ? 'half-yearly' : 'monthly'} investment every year</div>
                                     </div>
                                 </div>
                                 <div className={`stepup-badge${stepUp ? ' active' : ''}`}>
