@@ -342,7 +342,7 @@ export default function App() {
           <span className={`hb-line${mobileOpen ? ' open' : ''}`} />
           <span className={`hb-line${mobileOpen ? ' open' : ''}`} />
         </button>
-        <img src="/Calculator/logo.png" alt="AuraVerse" className="mobile-logo" />
+        <img src="/logo.png" alt="AuraVerse" className="mobile-logo" />
       </div>
 
       {/* ── Overlay (mobile only) ── */}
@@ -353,7 +353,7 @@ export default function App() {
       {/* ── Sidebar ── */}
       <aside className={`sidebar${mobileOpen ? ' mobile-open' : ''}`}>
         <div className="sidebar-brand">
-          <img src="/Calculator/logo.png" alt="AuraVerse Financial Solutions" className="sidebar-logo" />
+          <img src="/logo.png" alt="AuraVerse Financial Solutions" className="sidebar-logo" />
         </div>
 
         <nav className="sidebar-nav">
