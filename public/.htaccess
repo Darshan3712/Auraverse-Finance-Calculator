@@ -1,5 +1,15 @@
-Options -MultiViews
+# Ensure index.html is served as the default document
+DirectoryIndex index.html
+
+# Disable MultiViews if allowed (wrapped to prevent 403 on restrictive hosts)
+<IfModule mod_negotiation.c>
+  Options -MultiViews
+</IfModule>
+
 RewriteEngine On
+
+# Prevent 500 error from browser auto-requesting /favicon.ico
+RewriteRule ^favicon\.ico$ - [R=204,L]
 
 # Handle Authorization Header
 RewriteCond %{HTTP:Authorization} .
